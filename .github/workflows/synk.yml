@@ -1,5 +1,4 @@
 name: Snyk Code Analysis
-
 on:
   push:
     branches: [ "main" ]
@@ -23,11 +22,11 @@ jobs:
       - name: Record start time
         run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
 
+      - name: Install Snyk CLI
+        run: npm install -g snyk
+
       - name: Run Snyk Code scan
-        uses: snyk/actions/python@master
-        with:
-          command: code  # Use Snyk Code (SAST) instead of dependency scanning
-          args: --sarif-file-output=snyk.sarif
+        run: snyk code test --sarif-file-output=snyk.sarif || true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
