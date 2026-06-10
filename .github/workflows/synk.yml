@@ -26,18 +26,65 @@ jobs:
         run: npm install -g snyk
 
       - name: Run Snyk Code scan
-        run: snyk code test --sarif-file-output=snyk.sarif || true
+        id: snyk_scan
+        run: |
+          echo "🔍 Starting Snyk Code SAST scan..."
+          snyk code test --sarif-file-output=snyk.sarif 2>&1 | tee snyk_output.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "SNYK_EXIT_CODE=$EXIT_CODE" >> $GITHUB_ENV
+          echo "Snyk exited with code: $EXIT_CODE"
+          # Exit code 0 = no issues, 1 = vulnerabilities found, both are valid for us
+          if [ $EXIT_CODE -eq 0 ] || [ $EXIT_CODE -eq 1 ]; then
+            echo "✅ Scan completed successfully"
+            exit 0
+          else
+            echo "❌ Scan failed with unexpected error (exit code $EXIT_CODE)"
+            exit $EXIT_CODE
+          fi
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
+      - name: Verify SARIF output
+        if: always()
+        run: |
+          echo "=== Snyk Scan Output ==="
+          cat snyk_output.txt || echo "No output file found"
+          echo ""
+          echo "=== SARIF File Check ==="
+          if [ -f snyk.sarif ]; then
+            echo "✅ snyk.sarif exists ($(wc -c < snyk.sarif) bytes)"
+            echo "=== SARIF Preview (first 30 lines) ==="
+            head -30 snyk.sarif
+          else
+            echo "❌ snyk.sarif was NOT created"
+            echo "Files in workspace:"
+            ls -la
+          fi
+
       - name: Record end time and calculate duration
+        if: always()
         run: |
           END_TIME=$(date +%s)
           DURATION=$((END_TIME - START_TIME))
-          echo "Snyk Code pipeline duration: $DURATION seconds"
+          echo "========================================"
+          echo "  Snyk Code Pipeline Duration: ${DURATION}s"
+          echo "  Snyk Exit Code: $SNYK_EXIT_CODE"
+          echo "========================================"
+          echo "PIPELINE_DURATION=$DURATION" >> $GITHUB_ENV
 
-      - name: Upload SARIF results as artifact
+      - name: Upload SARIF as artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: snyk-results
-          path: snyk.sarif
+          name: snyk-sarif-results
+          path: |
+            snyk.sarif
+            snyk_output.txt
+          if-no-files-found: warn
+
+      - name: Upload SARIF to GitHub Security tab
+        if: always() && hashFiles('snyk.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk.sarif
+          category: snyk-code
