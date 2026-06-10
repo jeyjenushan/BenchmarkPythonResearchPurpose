@@ -1,0 +1,48 @@
+name: CodeQL Analysis
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:  # allows you to run it manually too
+
+jobs:
+  analyze:
+    name: Analyze Python Code
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+
+      # Step 1: Check out your code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Record the start time (for measuring pipeline overhead)
+      - name: Record start time
+        run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+
+      # Step 3: Initialize CodeQL
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-and-quality
+
+      # Step 4: Run the actual CodeQL analysis
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"
+
+      # Step 5: Record end time (for pipeline overhead measurement)
+      - name: Record end time and calculate duration
+        run: |
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          echo "CodeQL pipeline duration: $DURATION seconds"
+          echo "DURATION=$DURATION" >> $GITHUB_ENV
