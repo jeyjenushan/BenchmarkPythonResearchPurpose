@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  workflow_dispatch:  # allows you to run it manually too
+  workflow_dispatch:
 
 jobs:
   analyze:
@@ -18,31 +18,33 @@ jobs:
 
     steps:
 
-      # Step 1: Check out your code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Record the start time (for measuring pipeline overhead)
       - name: Record start time
         run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
 
-      # Step 3: Initialize CodeQL
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: python
           queries: security-and-quality
 
-      # Step 4: Run the actual CodeQL analysis
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:python"
+          output: results        # ← tells CodeQL where to save the SARIF file
 
-      # Step 5: Record end time (for pipeline overhead measurement)
       - name: Record end time and calculate duration
         run: |
           END_TIME=$(date +%s)
           DURATION=$((END_TIME - START_TIME))
           echo "CodeQL pipeline duration: $DURATION seconds"
-          echo "DURATION=$DURATION" >> $GITHUB_ENV
+
+      # ← THIS IS THE NEW STEP YOU WERE MISSING
+      - name: Upload SARIF results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-results
+          path: results/
