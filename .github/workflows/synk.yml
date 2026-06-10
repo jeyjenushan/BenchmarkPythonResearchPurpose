@@ -1,0 +1,44 @@
+name: Snyk Code Analysis
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    name: Analyze Python Code
+    runs-on: ubuntu-latest
+
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Record start time
+        run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+
+      - name: Run Snyk Code scan
+        uses: snyk/actions/python@master
+        with:
+          args: --sarif-file-output=snyk.sarif   # saves results as SARIF
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}  # ← required
+
+      - name: Record end time and calculate duration
+        run: |
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          echo "Snyk Code pipeline duration: $DURATION seconds"
+
+      - name: Upload SARIF results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-results
+          path: snyk.sarif
