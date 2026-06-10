@@ -24,13 +24,23 @@ jobs:
       - name: Record start time
         run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
 
-      - name: Run Semgrep CE
-        uses: returntocorp/semgrep-action@v1
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          config: "p/python"        # free open-source Python ruleset
-          generateSarif: "1"        # tells Semgrep to output SARIF format
-        env:
-          SEMGREP_APP_TOKEN: ""     # intentionally empty — CE needs no token
+          python-version: "3.11"
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep CE
+        # continue-on-error prevents job failing when findings exist
+        continue-on-error: true
+        run: |
+          semgrep scan \
+            --config "p/python" \
+            --sarif \
+            --output semgrep.sarif \
+            --metrics=off
 
       - name: Record end time and calculate duration
         run: |
